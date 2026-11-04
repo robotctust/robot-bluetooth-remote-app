@@ -13,8 +13,8 @@ android {
         applicationId = "com.robotctust.robotcontroller"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "4.0-beta.2"
+        versionCode = 7
+        versionName = "4.0-beta.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
