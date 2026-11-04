@@ -70,7 +70,9 @@ Same rules as the club website (`robotctust/robotctust.com`) and `CLAUDE.md`, ex
 
 - **Never** force-push, rebase or amend commits that are already pushed, reset `main`, delete branches (local or remote), or create tags / GitHub Releases (the maintainer uploads release APKs).
 
-### At the start of every session
+### Before every new request
+
+Do this **each time the user asks for something new**, not just once per session — a conversation can stay open for days, and the maintainer may have pushed commits or released a new version in the meantime.
 
 ```bash
 git fetch origin
@@ -78,19 +80,21 @@ git status            # must be clean; if not, ask the user what the leftover ch
 git branch -r --no-merged origin/main   # open series branches
 ```
 
-- If an open `feature/*` branch exists, continue on it (`git switch <branch> && git pull --rebase`) — unless the user's request is unrelated to it; then ask the user before starting a second series (two open series would claim the same version numbers).
+- If an open `feature/*` branch exists, continue on it (`git switch <branch> && git pull --rebase --autostash`) — unless the user's request is unrelated to it; then ask the user before starting a second series (two open series would claim the same version numbers).
 - If none exists, start a new series only when you are about to change files (see below).
 
 ### Start a series
 
 ```bash
+git fetch origin
 git switch main && git pull --ff-only
 git switch -c feature/<name>
+git merge-base --is-ancestor origin/main HEAD   # must succeed (no output); if it fails, the branch is based on an old main — stop and ask
 ```
 
 ### Make a Beta commit (after each finished feature or fix)
 
-1. `git pull --rebase` on the branch first — the maintainer may have pushed commits. Read `versionName` / `versionCode` **after** pulling, so beta numbers never collide.
+1. `git pull --rebase --autostash` on the branch first — the maintainer may have pushed commits (`--autostash` keeps your uncommitted edits safe during the pull). Read `versionName` / `versionCode` **after** pulling, so beta numbers never collide.
 2. Bump the version: next beta number, `versionCode` + 1.
 3. Run the verification above; fix until it passes.
 4. Write the message to `COMMIT_MESSAGE.md` (git-ignored), then:

@@ -10,7 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A second club officer (not a programmer) develops with Gemini in Antigravity, driven by `GEMINI.md`. Unlike Claude, that agent commits **and pushes** on its own: Beta commits on `feature/*` branches, and release merges into `main` once its user has tested on a phone. So the remote moves without the maintainer:
 
-- Start every session with `git fetch origin` and check `git branch -r --no-merged origin/main`. If the work belongs to an open series branch, continue on it after pulling it. Never start a second parallel series without asking — both would claim the same version numbers.
+- Before **every new request** (not just once per session), run `git fetch origin` and check `git branch -r --no-merged origin/main`. If the work belongs to an open series branch, continue on it after `git pull --rebase --autostash`. Never start a second parallel series without asking — both would claim the same version numbers.
+- New series: `git switch main && git pull --ff-only`, then cut the branch and confirm `git merge-base --is-ancestor origin/main HEAD` succeeds.
 - Read `versionName` / `versionCode` only after pulling, so beta numbers never collide.
 
 ## Commands
