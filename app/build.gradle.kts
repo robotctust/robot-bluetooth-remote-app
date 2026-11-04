@@ -6,17 +6,15 @@ plugins {
 android {
     namespace = "com.robotctust.robotcontroller"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
 
     defaultConfig {
         applicationId = "com.robotctust.robotcontroller"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "4.0-beta.1"
+        versionCode = 6
+        versionName = "4.0-beta.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
