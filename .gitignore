@@ -3,3 +3,23 @@
 
 # claude code
 .claude/
+
+# Android / Gradle
+*.iml
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 編譯產物請上傳到 GitHub Releases，不進版控
+*.apk
+*.aab
+APK/
+
+# Claude 寫給維護者的 commit / release 訊息
+COMMIT_MESSAGE.md
+RELEASE_NOTES.md
