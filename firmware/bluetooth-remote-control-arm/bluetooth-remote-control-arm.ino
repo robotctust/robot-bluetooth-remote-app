@@ -66,6 +66,7 @@ void setup() {
   
 
   BT.begin(9600);
+  BT.setTimeout(30); // M<左>,<右> 讀到換行最多等 30ms
   
   // 馬達初始化並強制保持靜止
   motorSetup();
@@ -125,21 +126,42 @@ void loop() {
       }
     }
 
-    // 2. 判斷是否為機械手臂伺服馬達控制指令 ('M' 開頭，格式如 M1090 代表 1號舵機轉至90度)
+    // 2. 'M' 開頭有兩種指令，讀前 4 個字元區分：
+    //   舵機：M<編號 1-4><三位數角度>，例如 M1090（固定 4 個數字、無換行）
+    //   差速：M<左輪 PWM>,<右輪 PWM> + 換行，例如 M200,-150（有逗號；左輪佔 4 個字元時一定是負號開頭）
     else if (command == 'M') {
       unsigned long startMs = millis();
-      // 等待後續的 4 個字元到達 (例如 1090)
+      // 等待後續的 4 個字元到達
       while (BT.available() < 4) {
         if (millis() - startMs > 50) {
           break; // 逾時防鎖死
         }
       }
-      
+
+      char buf[5] = {0};
       if (BT.available() >= 4) {
-        char servoChar = BT.read();
-        char a1 = BT.read();
-        char a2 = BT.read();
-        char a3 = BT.read();
+        for (int i = 0; i < 4; i++) buf[i] = BT.read();
+      }
+
+      if (buf[0] != 0 && (strchr(buf, ',') != NULL || buf[0] == '-')) {
+        String line = buf;
+        if (strchr(buf, '\n') == NULL) line += BT.readStringUntil('\n');
+        int comma = line.indexOf(',');
+        if (comma != -1) {
+          int leftVal = line.substring(0, comma).toInt();
+          int rightVal = line.substring(comma + 1).toInt();
+          DriveDifferential(leftVal, rightVal);
+          currentAction = (leftVal == 0 && rightVal == 0) ? 'S' : 'D'; // 'D'：速度數字指令不會重新啟動舊的 F/B/L/R 動作
+          Serial.print(F("[動作] 搖桿 左輪 "));
+          Serial.print(leftVal);
+          Serial.print(F(" 右輪 "));
+          Serial.println(rightVal);
+        }
+      } else if (buf[0] != 0) {
+        char servoChar = buf[0];
+        char a1 = buf[1];
+        char a2 = buf[2];
+        char a3 = buf[3];
         
         int servoNum = servoChar - '0';
         int angle = (a1 - '0') * 100 + (a2 - '0') * 10 + (a3 - '0');

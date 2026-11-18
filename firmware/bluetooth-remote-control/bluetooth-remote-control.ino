@@ -52,6 +52,7 @@ void setup() {
 
   // 啟動 BT06 軟體序列埠
   BT.begin(9600);
+  BT.setTimeout(30); // M<左>,<右> 讀到換行最多等 30ms
 
   // 初始化狀態指示燈
   if (BT_RX != LED_STATUS && BT_TX != LED_STATUS) {
@@ -108,6 +109,22 @@ void loop() {
         updateMovement();
       } else {
         Stop();
+      }
+    }
+
+    // 差速混控指令 (M<左輪 PWM>,<右輪 PWM> + 換行，例如 M200,-150)
+    else if (command == 'M') {
+      String line = BT.readStringUntil('\n');
+      int comma = line.indexOf(',');
+      if (comma != -1) {
+        int leftVal = line.substring(0, comma).toInt();
+        int rightVal = line.substring(comma + 1).toInt();
+        DriveDifferential(leftVal, rightVal);
+        currentAction = (leftVal == 0 && rightVal == 0) ? 'S' : 'D'; // 'D'：速度數字指令不會重新啟動舊的 F/B/L/R 動作
+        Serial.print(F("[動作] 搖桿 左輪 "));
+        Serial.print(leftVal);
+        Serial.print(F(" 右輪 "));
+        Serial.println(rightVal);
       }
     }
 

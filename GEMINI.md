@@ -46,7 +46,7 @@ arduino-cli compile --fqbn arduino:avr:uno firmware/bluetooth-remote-control-arm
 
 ## Gotchas
 
-- The Bluetooth protocol (`F/B/L/R/S`, `0`–`9`, `M<servo><angle>`) is shared by `BluetoothManager.kt` and both sketches — change all sides together and update the README protocol section.
+- The Bluetooth protocol (`M<leftPWM>,<rightPWM>` joystick drive — the same command the iOS app sends; the arm firmware tells it apart from `M<servo><angle>` by the comma / leading minus — legacy `F/B/L/R/S` and `0`–`9`, `M<servo><angle>`) is shared by `BluetoothManager.kt` and both sketches — change all sides together and update the README protocol section.
 - Both `firmware/*/motor.ino` files are identical copies; keep them in sync.
 - Keep `targetSdk` unchanged unless the work is specifically about adopting new runtime behaviour; `compileSdk` can move independently when libraries require it.
 - Never commit `local.properties`, keystores, passwords/API keys, `build/` output or `.apk` files (`.gitignore` covers these — don't weaken it).

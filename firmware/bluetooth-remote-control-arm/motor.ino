@@ -66,3 +66,13 @@ void Stop() {
   digitalWrite(B_1A, LOW);
   digitalWrite(B_1B, LOW);
 }
+
+// ── 差速混控直接驅動（M<左輪 PWM>,<右輪 PWM>，負數為反轉；支援 iOS / Android 類比搖桿）──
+void DriveDifferential(int leftSpeed, int rightSpeed) {
+  if (leftSpeed == 0 && rightSpeed == 0) {
+    Stop();
+    return;
+  }
+  MotorLeft(leftSpeed >= 0, constrain(abs(leftSpeed), 0, 255));
+  MotorRight(rightSpeed >= 0, constrain(abs(rightSpeed), 0, 255));
+}
