@@ -30,8 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.robotctust.robotcontroller.bluetooth.BluetoothHelper
 import com.robotctust.robotcontroller.bluetooth.ConnectionState
-import com.robotctust.robotcontroller.ui.components.Joystick
 import com.robotctust.robotcontroller.ui.components.AnalogJoystick
+import com.robotctust.robotcontroller.ui.components.ARM_MAX_PWM
+import com.robotctust.robotcontroller.ui.components.driveMix
+import com.robotctust.robotcontroller.ui.components.percentToPwm
 import com.robotctust.robotcontroller.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -47,7 +49,8 @@ fun RoboticArmControlScreen(
     val connectedDeviceName by bluetoothHelper.connectedDeviceName.collectAsState()
 
     var showDeviceDialog by remember { mutableStateOf(false) }
-    var speedSliderValue by remember { mutableFloatStateOf(100f) } // Default 50% speed (100 PWM)
+    var speedSliderValue by remember { mutableFloatStateOf(50f) } // 最高速度 %（搖桿推到底時）
+    var drivePosition by remember { mutableStateOf(Offset.Zero) } // 行進搖桿位置，-1～1，螢幕座標（下為 +y）
 
     // 連線狀態監控：連線完成時強制保持靜止 ('S')，斷線時重設速度
     LaunchedEffect(connectionState) {
@@ -55,7 +58,7 @@ fun RoboticArmControlScreen(
             // 藍芽連線完成，立刻送出停止訊號，確保車輛在收到移動訊號前為靜止狀態
             bluetoothHelper.sendDirectionForce('S')
         } else {
-            speedSliderValue = 100f
+            speedSliderValue = 50f
         }
     }
 
@@ -68,12 +71,14 @@ fun RoboticArmControlScreen(
     // Position of the arm analog joystick (-1.0 to 1.0)
     var armJoystickPosition by remember { mutableStateOf(Offset.Zero) }
 
-    // Sync speed when connected
-    LaunchedEffect(speedSliderValue, connectionState) {
+    // 行進搖桿差速控制：每 50ms（20Hz）把搖桿位置換算成左右輪 PWM 送出，內容沒變就不送
+    LaunchedEffect(connectionState) {
         if (connectionState == ConnectionState.CONNECTED) {
-            val level = if (speedSliderValue <= 0f) 0 else (((speedSliderValue / 200f) * 8f).toInt() + 1).coerceIn(1, 9)
-            val speedChar = (level + '0'.code).toChar()
-            bluetoothHelper.sendSpeed(speedChar)
+            while (true) {
+                val (left, right) = driveMix(drivePosition.x, -drivePosition.y, speedSliderValue.toInt())
+                bluetoothHelper.sendDrive(percentToPwm(left, ARM_MAX_PWM), percentToPwm(right, ARM_MAX_PWM))
+                delay(50)
+            }
         }
     }
 
@@ -199,12 +204,10 @@ fun RoboticArmControlScreen(
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.padding(bottom = 2.dp)
                     )
-                    Joystick(
+                    AnalogJoystick(
                         size = 135.dp,
                         thumbSize = 46.dp,
-                        onDirectionChanged = { dir ->
-                            bluetoothHelper.sendDirection(dir)
-                        }
+                        onPositionChanged = { x, y -> drivePosition = Offset(x, y) }
                     )
                 }
             }
@@ -331,12 +334,12 @@ fun RoboticArmControlScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("車速", fontSize = 9.sp, color = CyberPrimary, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                            Text("${speedSliderValue.toInt()} PWM", fontSize = 10.sp, color = CyberPrimary, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            Text("${speedSliderValue.toInt()} %", fontSize = 10.sp, color = CyberPrimary, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                         }
                         Slider(
                             value = speedSliderValue,
                             onValueChange = { speedSliderValue = it },
-                            valueRange = 0f..200f,
+                            valueRange = 0f..100f,
                             colors = SliderDefaults.colors(
                                 thumbColor = CyberPrimary,
                                 activeTrackColor = CyberPrimary,

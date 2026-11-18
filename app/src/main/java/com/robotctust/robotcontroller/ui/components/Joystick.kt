@@ -26,196 +26,59 @@ import com.robotctust.robotcontroller.ui.theme.CyberSecondary
 import com.robotctust.robotcontroller.ui.theme.CyberSurfaceVariant
 import kotlinx.coroutines.launch
 import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.abs
+import kotlin.math.hypot
+import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
-@Composable
-fun Joystick(
-    modifier: Modifier = Modifier,
-    size: Dp = 180.dp,
-    thumbSize: Dp = 60.dp,
-    onDirectionChanged: (Char) -> Unit
-) {
-    val density = LocalDensity.current
-    val sizePx = remember(size) { with(density) { size.toPx() } }
-    val thumbSizePx = remember(thumbSize) { with(density) { thumbSize.toPx() } }
-    val radiusPx = sizePx / 2f
-    val maxDragPx = radiusPx - (thumbSizePx / 2f)
-
-    // Animated offset to allow returning to center smoothly on release
-    val animatedOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
-    val coroutineScope = rememberCoroutineScope()
-
-    // Keep track of the current active command to avoid sending redundant triggers in gesture loop
-    val activeCommand = remember { mutableMapOf("cmd" to 'S') }
-
-    Box(
-        modifier = modifier
-            .size(size)
-            .pointerInput(sizePx, thumbSizePx) {
-                detectDragGestures(
-                    onDragStart = {
-                        // Reset when drag starts
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        coroutineScope.launch {
-                            val newX = animatedOffset.value.x + dragAmount.x
-                            val newY = animatedOffset.value.y + dragAmount.y
-                            val dist = sqrt(newX * newX + newY * newY)
-
-                            val finalOffset = if (dist <= maxDragPx) {
-                                Offset(newX, newY)
-                            } else {
-                                Offset(newX / dist * maxDragPx, newY / dist * maxDragPx)
-                            }
-                            animatedOffset.snapTo(finalOffset)
-
-                            // Calculate direction command
-                            val cmd = calculateDirection(finalOffset.x, finalOffset.y, maxDragPx)
-                            if (activeCommand["cmd"] != cmd) {
-                                activeCommand["cmd"] = cmd
-                                onDirectionChanged(cmd)
-                            }
-                        }
-                    },
-                    onDragEnd = {
-                        coroutineScope.launch {
-                            animatedOffset.animateTo(Offset.Zero)
-                            if (activeCommand["cmd"] != 'S') {
-                                activeCommand["cmd"] = 'S'
-                                onDirectionChanged('S')
-                            }
-                        }
-                    },
-                    onDragCancel = {
-                        coroutineScope.launch {
-                            animatedOffset.animateTo(Offset.Zero)
-                            if (activeCommand["cmd"] != 'S') {
-                                activeCommand["cmd"] = 'S'
-                                onDirectionChanged('S')
-                            }
-                        }
-                    }
-                )
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.size(size)) {
-            val center = Offset(sizePx / 2, sizePx / 2)
-            
-            // Draw background glow of outer ring
-            drawCircle(
-                color = CyberSecondary.copy(alpha = 0.1f),
-                radius = radiusPx,
-                center = center
-            )
-            
-            // Draw outer border ring (neon styled)
-            drawCircle(
-                brush = Brush.sweepGradient(
-                    colors = listOf(CyberPrimary, CyberSecondary, CyberPrimary),
-                    center = center
-                ),
-                radius = radiusPx,
-                center = center,
-                style = Stroke(width = 4.dp.toPx())
-            )
-
-            // Draw crosshairs / grids for a techy cockpit look
-            val crosshairLen = 16.dp.toPx()
-            val crosshairStroke = 1.5.dp.toPx()
-            // Top cross
-            drawLine(
-                color = CyberPrimary.copy(alpha = 0.6f),
-                start = Offset(center.x, center.y - radiusPx + 10.dp.toPx()),
-                end = Offset(center.x, center.y - radiusPx + 10.dp.toPx() + crosshairLen),
-                strokeWidth = crosshairStroke
-            )
-            // Bottom cross
-            drawLine(
-                color = CyberPrimary.copy(alpha = 0.6f),
-                start = Offset(center.x, center.y + radiusPx - 10.dp.toPx()),
-                end = Offset(center.x, center.y + radiusPx - 10.dp.toPx() - crosshairLen),
-                strokeWidth = crosshairStroke
-            )
-            // Left cross
-            drawLine(
-                color = CyberPrimary.copy(alpha = 0.6f),
-                start = Offset(center.x - radiusPx + 10.dp.toPx(), center.y),
-                end = Offset(center.x - radiusPx + 10.dp.toPx() + crosshairLen, center.y),
-                strokeWidth = crosshairStroke
-            )
-            // Right cross
-            drawLine(
-                color = CyberPrimary.copy(alpha = 0.6f),
-                start = Offset(center.x + radiusPx - 10.dp.toPx(), center.y),
-                end = Offset(center.x + radiusPx - 10.dp.toPx() - crosshairLen, center.y),
-                strokeWidth = crosshairStroke
-            )
-
-            // Draw inner thumb (joystick control)
-            val thumbCenter = center + animatedOffset.value
-            
-            // Thumb outer neon glow
-            drawCircle(
-                color = CyberPrimary.copy(alpha = 0.25f),
-                radius = thumbSizePx / 2f + 6.dp.toPx(),
-                center = thumbCenter
-            )
-            
-            // Thumb base
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(CyberSurfaceVariant, CyberSecondary.copy(alpha = 0.8f)),
-                    center = thumbCenter,
-                    radius = thumbSizePx / 2f
-                ),
-                radius = thumbSizePx / 2f,
-                center = thumbCenter
-            )
-            
-            // Thumb top ring
-            drawCircle(
-                color = CyberPrimary,
-                radius = thumbSizePx / 4f,
-                center = thumbCenter,
-                style = Stroke(width = 3.dp.toPx())
-            )
-        }
-    }
-}
+// 直走微調：搖桿偏離正前／正後 FINE_ANGLE 度以內轉向很鈍，到 FINE_ANGLE 時轉向量才 FINE_TURN（1 = 原地旋轉）。
+// ponytail: 兩段線性曲線，手感不對就調這兩個數字
+private const val FINE_ANGLE = 30f
+private const val FINE_TURN = 0.15f
+private const val DEAD_ZONE = 0.1f
 
 /**
- * Calculates direction character based on coordinates.
- * - Up (Forward): 'F'
- * - Down (Backward): 'B'
- * - Spin Left: 'L'
- * - Spin Right: 'R'
- * - Center (Stop): 'S'
+ * 搖桿位置 → 左右輪速度百分比（-100～100），差速混控。
+ * x 向右為正、y 向前為正，範圍 -1～1。
+ * - 偏離正前／正後 0～30°：轉向緩慢增加，方便直走微調
+ * - 30～90°：轉向加快補回，正左／正右 (90°) 為原地旋轉
+ * - 後退同理；推動距離決定整體速度，最大為 maxPercent
  */
-private fun calculateDirection(x: Float, y: Float, maxDrag: Float): Char {
-    val distance = sqrt(x * x + y * y)
-    val deadZone = maxDrag * 0.25f // 25% deadzone to avoid accidental drift
-    if (distance < deadZone) {
-        return 'S'
+fun driveMix(x: Float, y: Float, maxPercent: Int): Pair<Int, Int> {
+    val distance = min(1f, hypot(x, y))
+    if (distance < DEAD_ZONE) return 0 to 0
+
+    val angle = Math.toDegrees(atan2(abs(x), abs(y)).toDouble()).toFloat() // 0 = 正前／正後，90 = 正左／正右
+    val turn = if (angle <= FINE_ANGLE) {
+        FINE_TURN * angle / FINE_ANGLE
+    } else {
+        FINE_TURN + (1 - FINE_TURN) * (angle - FINE_ANGLE) / (90 - FINE_ANGLE)
     }
+    val inner = 1 - 2 * turn // 外側輪全速；內側輪從全速（直走）降到反轉全速（原地旋轉）
 
-    val angleRad = atan2(y, x)
-    val angleDeg = Math.toDegrees(angleRad.toDouble())
-
-
-    return when {
-        // Sector right: [-45, 45] -> 'R'
-        angleDeg >= -45 && angleDeg <= 45 -> 'R'
-        // Sector down: [45, 135] -> 'B'
-        angleDeg > 45 && angleDeg < 135 -> 'B'
-        // Sector up: [-135, -45] -> 'F'
-        angleDeg > -135 && angleDeg < -45 -> 'F'
-        // Sector left: [135, 180] or [-180, -135] -> 'L'
-        else -> 'L'
+    var (left, right) = if (x >= 0) 1f to inner else inner to 1f
+    if (y < 0) { // 後退：兩輪反轉並左右對調，在 90° 與前進側連續
+        val l = left
+        left = -right
+        right = -l
     }
+    val scale = distance * maxPercent
+    return (left * scale).roundToInt() to (right * scale).roundToInt()
+}
+
+// 韌體的 M<左>,<右> 把數值直接當 PWM 寫進馬達，PWM 低於 MIN_PWM 推不動車，
+// 所以 1～100% 對應 MIN_PWM～最高 PWM（與速度等級 1～9 的範圍相同）。
+// ponytail: 線性對應，車子起步推不動就調高 MIN_PWM，太快就調低最高 PWM
+const val MIN_PWM = 100
+const val CAR_MAX_PWM = 200
+const val ARM_MAX_PWM = 220
+
+/** 速度百分比（-100～100）→ 帶正負號的 PWM（0 或 ±MIN_PWM～maxPwm）。 */
+fun percentToPwm(percent: Int, maxPwm: Int): Int {
+    if (percent == 0) return 0
+    val pwm = MIN_PWM + (abs(percent).coerceAtMost(100) - 1) * (maxPwm - MIN_PWM) / 99
+    return if (percent > 0) pwm else -pwm
 }
 
 @Composable

@@ -43,8 +43,7 @@ class BluetoothHelper(private val context: Context) {
     val connectedDeviceName = _connectedDeviceName.asStateFlow()
 
     // Redundancy prevention state
-    private var lastDirectionChar: Char? = null
-    private var lastSpeedChar: Char? = null
+    private var lastDrive: String? = null
     private val lastServoAngles = mutableMapOf<Int, Int>()
     private val sendMutex = Mutex()
 
@@ -175,8 +174,7 @@ class BluetoothHelper(private val context: Context) {
                     outputStream = clientSocket.outputStream
                     
                     // Reset redundancy states on new connection
-                    lastDirectionChar = null
-                    lastSpeedChar = null
+                    lastDrive = null
                     lastServoAngles.clear()
                     
                     true
@@ -204,7 +202,6 @@ class BluetoothHelper(private val context: Context) {
                     sendDirectionForce('S')
                     kotlinx.coroutines.delay(100)
                     sendRaw("S")
-                    lastDirectionChar = 'S'
                     Log.d(TAG, "已確認發送靜止指令 'S'，車輛處於初始靜止狀態")
                 }
             } else {
@@ -269,33 +266,24 @@ class BluetoothHelper(private val context: Context) {
     }
 
     /**
-     * Sends a direction command character ('F', 'B', 'L', 'R', 'S') if it changed.
-     */
-    fun sendDirection(dir: Char) {
-        if (dir != lastDirectionChar) {
-            lastDirectionChar = dir
-            sendRaw(dir.toString())
-            Log.d(TAG, "Direction changed -> Sent: $dir")
-        }
-    }
-
-    /**
-     * 強制發送方向指令 (即使與 lastDirectionChar 相同亦強制送出，用於連線初始化或緊急停止)
+     * 強制發送方向指令（用於連線初始化或緊急停止，實際只送 'S'）。
+     * 車已停下，所以把搖桿去重狀態設為 M0,0：下次推動搖桿一定會送出。
      */
     fun sendDirectionForce(dir: Char) {
-        lastDirectionChar = dir
+        lastDrive = "M0,0\n"
         sendRaw(dir.toString())
         Log.d(TAG, "Force sent direction: $dir")
     }
 
     /**
-     * Sends a speed command character ('0' - '9') if it changed.
+     * 搖桿差速控制："M<左輪 PWM>,<右輪 PWM>\n"（-255～255，負數為反轉），與上次相同就不送。
+     * 與韌體 DriveDifferential 對應；機械手臂韌體以「有沒有逗號」區分它和舵機指令 M<編號><角度>。
      */
-    fun sendSpeed(speed: Char) {
-        if (speed != lastSpeedChar) {
-            lastSpeedChar = speed
-            sendRaw(speed.toString())
-            Log.d(TAG, "Speed changed -> Sent: $speed")
+    fun sendDrive(left: Int, right: Int) {
+        val cmd = "M$left,$right\n"
+        if (cmd != lastDrive) {
+            lastDrive = cmd
+            sendRaw(cmd)
         }
     }
 
